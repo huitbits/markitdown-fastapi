@@ -4,7 +4,7 @@ RUN pip install --no-cache-dir uv
 
 WORKDIR /app
 
-COPY pyproject.toml uv.lock* ./
+COPY pyproject.toml uv.lock* README.md ./
 RUN uv sync --no-dev --no-install-project
 
 COPY src/ src/
@@ -15,4 +15,4 @@ USER appuser
 
 EXPOSE 8490
 
-CMD ["uv", "run", "uvicorn", "markitdown_api.main:app", "--host", "0.0.0.0", "--port", "8490"]
+CMD ["uv", "run", "--frozen", "--no-dev", "uvicorn", "markitdown_api.main:app", "--host", "0.0.0.0", "--port", "8490"]

@@ -24,6 +24,7 @@ def test_convert_uploaded_html(client: TestClient) -> None:
     assert "Hello Markdown" in body["markdown"]
     assert body["metadata"]["source_type"] == "upload"
     assert body["metadata"]["source"] == "sample.html"
+    assert body["metadata"]["extraction_method"] == "MarkItDown (built-in converters)"
 
 
 def test_convert_url_rejects_loopback(client: TestClient) -> None:

@@ -14,6 +14,10 @@ class ConversionMetadata(BaseModel):
     source_type: Literal["upload", "url"]
     source: str = Field(description="Original filename or URL")
     title: str | None = None
+    extraction_method: str = Field(
+        description="Engine(s) used to extract content, e.g. 'Microsoft Document Intelligence' "
+        "or 'MarkItDown (built-in converters) + LLM image captioning (OpenAI/gpt-4o-mini)'"
+    )
 
 
 class ConvertResponse(BaseModel):
@@ -25,6 +29,7 @@ class BatchItemResult(BaseModel):
     source: str
     success: bool
     markdown: str | None = None
+    extraction_method: str | None = None
     error: str | None = None
 
 

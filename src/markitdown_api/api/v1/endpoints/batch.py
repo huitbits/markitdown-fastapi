@@ -3,7 +3,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Form, UploadFile
 
 from markitdown_api.core.config import Settings, get_settings
-from markitdown_api.core.markitdown_client import build_markitdown_client
+from markitdown_api.core.markitdown_client import (
+    build_docintel_fallback_client,
+    build_primary_client,
+)
 from markitdown_api.core.security import require_token
 from markitdown_api.schemas.convert import BatchConvertResponse, BatchItemResult
 from markitdown_api.services.conversion import (
@@ -29,11 +32,13 @@ async def convert_batch(
     use_docintel: bool = False,
     use_llm_captions: bool = False,
 ) -> BatchConvertResponse:
-    client = build_markitdown_client(
-        settings,
-        enable_plugins=enable_plugins,
-        use_docintel=use_docintel,
-        use_llm_captions=use_llm_captions,
+    primary = build_primary_client(
+        settings, enable_plugins=enable_plugins, use_llm_captions=use_llm_captions
+    )
+    docintel_fallback = (
+        build_docintel_fallback_client(settings, use_llm_captions=use_llm_captions)
+        if use_docintel
+        else None
     )
 
     results: list[BatchItemResult] = []
@@ -41,15 +46,29 @@ async def convert_batch(
     for file in files or []:
         source = file.filename or "unknown"
         try:
-            response = await convert_upload_to_markdown(client, file)
-            results.append(BatchItemResult(source=source, success=True, markdown=response.markdown))
+            response = await convert_upload_to_markdown(file, primary, docintel_fallback)
+            results.append(
+                BatchItemResult(
+                    source=source,
+                    success=True,
+                    markdown=response.markdown,
+                    extraction_method=response.metadata.extraction_method,
+                )
+            )
         except ConversionError as err:
             results.append(BatchItemResult(source=source, success=False, error=str(err)))
 
     for url in urls:
         try:
-            response = await convert_url_to_markdown(client, url)
-            results.append(BatchItemResult(source=url, success=True, markdown=response.markdown))
+            response = await convert_url_to_markdown(url, primary, docintel_fallback)
+            results.append(
+                BatchItemResult(
+                    source=url,
+                    success=True,
+                    markdown=response.markdown,
+                    extraction_method=response.metadata.extraction_method,
+                )
+            )
         except (UnsafeUrlError, ConversionError) as err:
             results.append(BatchItemResult(source=url, success=False, error=str(err)))
 

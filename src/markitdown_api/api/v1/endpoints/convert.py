@@ -3,7 +3,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 
 from markitdown_api.core.config import Settings, get_settings
-from markitdown_api.core.markitdown_client import build_markitdown_client
+from markitdown_api.core.markitdown_client import (
+    build_docintel_fallback_client,
+    build_primary_client,
+)
 from markitdown_api.core.security import require_token
 from markitdown_api.core.url_guard import UnsafeUrlError
 from markitdown_api.schemas.convert import ConvertResponse, ConvertUrlRequest
@@ -33,14 +36,16 @@ async def convert_file(
             status.HTTP_413_CONTENT_TOO_LARGE, detail="File exceeds max upload size"
         )
 
-    client = build_markitdown_client(
-        settings,
-        enable_plugins=enable_plugins,
-        use_docintel=use_docintel,
-        use_llm_captions=use_llm_captions,
+    primary = build_primary_client(
+        settings, enable_plugins=enable_plugins, use_llm_captions=use_llm_captions
+    )
+    docintel_fallback = (
+        build_docintel_fallback_client(settings, use_llm_captions=use_llm_captions)
+        if use_docintel
+        else None
     )
     try:
-        return await convert_upload_to_markdown(client, file)
+        return await convert_upload_to_markdown(file, primary, docintel_fallback)
     except ConversionError as err:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(err)) from err
 
@@ -54,14 +59,16 @@ async def convert_url(
     settings: Annotated[Settings, Depends(get_settings)],
     body: ConvertUrlRequest,
 ) -> ConvertResponse:
-    client = build_markitdown_client(
-        settings,
-        enable_plugins=body.enable_plugins,
-        use_docintel=body.use_docintel,
-        use_llm_captions=body.use_llm_captions,
+    primary = build_primary_client(
+        settings, enable_plugins=body.enable_plugins, use_llm_captions=body.use_llm_captions
+    )
+    docintel_fallback = (
+        build_docintel_fallback_client(settings, use_llm_captions=body.use_llm_captions)
+        if body.use_docintel
+        else None
     )
     try:
-        return await convert_url_to_markdown(client, str(body.url))
+        return await convert_url_to_markdown(str(body.url), primary, docintel_fallback)
     except UnsafeUrlError as err:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(err)) from err
     except ConversionError as err:

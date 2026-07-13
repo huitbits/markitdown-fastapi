@@ -47,6 +47,26 @@ curl -X POST http://localhost:8000/api/v1/convert/url \
   -d '{"url": "https://example.com/report.docx"}'
 ```
 
+Response `metadata.extraction_method` reports which engine(s) actually produced the result:
+
+```json
+{
+  "markdown": "# Report\n\n...",
+  "metadata": {
+    "source_type": "upload",
+    "source": "report.docx",
+    "title": "Report",
+    "extraction_method": "Microsoft Document Intelligence"
+  }
+}
+```
+
+`Microsoft Document Intelligence` is only ever used as an automatic **fallback**: when `use_docintel=true`, the built-in converters are tried first, and Azure Document Intelligence is retried automatically only if that attempt raises an error or returns empty markdown (and `AZURE_DOCINTEL_ENDPOINT` is configured). In that case `extraction_method` reads `Microsoft Document Intelligence (fallback after empty extraction)` or `... (fallback after extraction failed)`.
+
+Possible values: `MarkItDown (built-in converters)` (default/success case), `Microsoft Document Intelligence (fallback after ...)` (only when the built-in attempt failed), optionally suffixed with `+ LLM image captioning (OpenAI/<model>)` and/or `+ third-party plugins`.
+
+> **Note on Document Intelligence output**: Azure Document Intelligence's markdown output format (GFM) embeds raw HTML for constructs that plain markdown can't express — merged-cell tables, `<figure>`, `<sup>`/`<sub>`, page breaks. This is expected behavior on Microsoft's side, not a bug, and renders correctly in most markdown viewers (GitHub, VS Code preview, etc.) that support inline HTML.
+
 ## Configuration
 
 All configuration is via environment variables — see [.env.example](.env.example):

@@ -88,15 +88,19 @@ async def _convert_with_fallback(
         and primary_result.text_content.strip()
     )
     if primary_has_content:
-        return primary_result.text_content, primary.extraction_method, getattr(
-            primary_result, "title", None
+        return (
+            primary_result.text_content,
+            primary.extraction_method,
+            getattr(primary_result, "title", None),
         )
 
     if docintel_fallback is None:
         if primary_error is not None:
             raise ConversionError(str(primary_error)) from primary_error
-        return primary_result.text_content, primary.extraction_method, getattr(
-            primary_result, "title", None
+        return (
+            primary_result.text_content,
+            primary.extraction_method,
+            getattr(primary_result, "title", None),
         )
 
     try:

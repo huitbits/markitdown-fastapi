@@ -42,6 +42,41 @@ markitdown's own docs warn that `convert()` is permissive by design. Since this 
 
 Project is MIT licensed (see `LICENSE` at repo root). Do not add per-file license headers — the root license covers the whole repository. Do not add or vendor code from sources with incompatible licenses.
 
+## Git Workflow
+
+- **Branch creation**: follow `.claude/skills/branch-creation/SKILL.md`. Always ask for the GitHub issue number first; name branches `<type>/<issue-number>/<english-slug>`.
+- **Issue creation**: follow `.claude/skills/issue-creation/SKILL.md`.
+- **Pull request creation**: follow `.claude/skills/pull-request-creation/SKILL.md`. Use `.github/pull_request_template.md` as the canonical PR body template.
+
+## RTK (Rust Token Killer) — Mandatory Usage
+
+**Golden rule**: always prefix shell commands with `rtk`. If RTK has a dedicated filter for the command, it compresses the output; otherwise it passes through unchanged. This makes `rtk` always safe to prepend.
+
+This applies even inside command chains with `&&`:
+
+```bash
+# Wrong
+git add . && git commit -m "msg" && git push
+
+# Correct
+rtk git add . && rtk git commit -m "msg" && rtk git push
+```
+
+Commands relevant to this project:
+
+```bash
+rtk git status / log / diff / show / add / commit / push / pull / branch / fetch / stash
+rtk gh issue create / gh pr create / gh pr view / gh pr checks
+rtk pytest                # Python test failures only
+rtk ls <path>              # Compact tree listing
+rtk read <file>             # Filtered code reading
+rtk grep <pattern>          # Search grouped by file
+rtk find <pattern>          # Find grouped by directory
+rtk err <cmd>               # Errors only from any command
+rtk docker ps / images / logs
+rtk gain                    # Token savings statistics
+```
+
 ## Skills
 
-See `.claude/skills/` for FastAPI and Python convention skills that apply throughout this repo.
+See `.claude/skills/` for FastAPI, Python convention, and Git workflow skills that apply throughout this repo.

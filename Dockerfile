@@ -10,7 +10,7 @@ RUN uv sync --no-dev --no-install-project
 COPY src/ src/
 RUN uv sync --no-dev
 
-RUN useradd --create-home appuser
+RUN useradd --create-home appuser && chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 8490

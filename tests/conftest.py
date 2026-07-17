@@ -18,6 +18,7 @@ _ISOLATED_ENV_VARS = {
     "LLM_PROVIDER": "",
     "LLM_API_KEY": "",
     "LLM_MODEL": "",
+    "LOG_LEVEL": "INFO",
 }
 
 

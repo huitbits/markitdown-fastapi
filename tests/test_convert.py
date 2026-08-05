@@ -27,6 +27,22 @@ def test_convert_uploaded_html(client: TestClient) -> None:
     assert body["metadata"]["extraction_method"] == "MarkItDown (built-in converters)"
 
 
+def test_convert_uploaded_html_with_anonymize_redacts_pii(client: TestClient) -> None:
+    sample = FIXTURES_DIR / "sample_with_pii.html"
+    with sample.open("rb") as f:
+        response = client.post(
+            "/api/v1/convert",
+            files={"file": ("sample_with_pii.html", f, "text/html")},
+            params={"anonymize": "true"},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "João Silva" not in body["markdown"]
+    assert "123.456.789-09" not in body["markdown"]
+    assert "joao@example.com" not in body["markdown"]
+
+
 def test_convert_url_rejects_loopback(client: TestClient) -> None:
     response = client.post("/api/v1/convert/url", json={"url": "http://127.0.0.1/secret"})
     assert response.status_code == 422

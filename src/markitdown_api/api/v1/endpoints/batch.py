@@ -9,6 +9,7 @@ from markitdown_api.core.markitdown_client import (
 )
 from markitdown_api.core.security import require_token
 from markitdown_api.schemas.convert import BatchConvertResponse, BatchItemResult
+from markitdown_api.services.anonymization import anonymize_content
 from markitdown_api.services.conversion import (
     ConversionError,
     UnsafeUrlError,
@@ -31,6 +32,7 @@ async def convert_batch(
     enable_plugins: bool = False,
     use_docintel: bool = False,
     use_llm_captions: bool = False,
+    anonymize: bool = False,
 ) -> BatchConvertResponse:
     primary = build_primary_client(
         settings, enable_plugins=enable_plugins, use_llm_captions=use_llm_captions
@@ -47,11 +49,14 @@ async def convert_batch(
         source = file.filename or "unknown"
         try:
             response = await convert_upload_to_markdown(file, primary, docintel_fallback)
+            markdown = (
+                anonymize_content(response.markdown).anonymized if anonymize else response.markdown
+            )
             results.append(
                 BatchItemResult(
                     source=source,
                     success=True,
-                    markdown=response.markdown,
+                    markdown=markdown,
                     extraction_method=response.metadata.extraction_method,
                 )
             )
@@ -61,11 +66,14 @@ async def convert_batch(
     for url in urls:
         try:
             response = await convert_url_to_markdown(url, primary, docintel_fallback)
+            markdown = (
+                anonymize_content(response.markdown).anonymized if anonymize else response.markdown
+            )
             results.append(
                 BatchItemResult(
                     source=url,
                     success=True,
-                    markdown=response.markdown,
+                    markdown=markdown,
                     extraction_method=response.metadata.extraction_method,
                 )
             )

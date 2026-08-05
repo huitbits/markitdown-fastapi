@@ -10,6 +10,7 @@ from markitdown_api.core.markitdown_client import (
 from markitdown_api.core.security import require_token
 from markitdown_api.core.url_guard import UnsafeUrlError
 from markitdown_api.schemas.convert import ConvertResponse, ConvertUrlRequest
+from markitdown_api.services.anonymization import anonymize_content
 from markitdown_api.services.conversion import (
     ConversionError,
     convert_upload_to_markdown,
@@ -30,6 +31,7 @@ async def convert_file(
     enable_plugins: bool = False,
     use_docintel: bool = False,
     use_llm_captions: bool = False,
+    anonymize: bool = False,
 ) -> ConvertResponse:
     if file.size is not None and file.size > settings.max_upload_size_bytes:
         raise HTTPException(
@@ -45,9 +47,13 @@ async def convert_file(
         else None
     )
     try:
-        return await convert_upload_to_markdown(file, primary, docintel_fallback)
+        result = await convert_upload_to_markdown(file, primary, docintel_fallback)
     except ConversionError as err:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(err)) from err
+
+    if anonymize:
+        result.markdown = anonymize_content(result.markdown).anonymized
+    return result
 
 
 @router.post(
@@ -68,8 +74,12 @@ async def convert_url(
         else None
     )
     try:
-        return await convert_url_to_markdown(str(body.url), primary, docintel_fallback)
+        result = await convert_url_to_markdown(str(body.url), primary, docintel_fallback)
     except UnsafeUrlError as err:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(err)) from err
     except ConversionError as err:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(err)) from err
+
+    if body.anonymize:
+        result.markdown = anonymize_content(result.markdown).anonymized
+    return result

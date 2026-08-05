@@ -8,6 +8,7 @@ class ConvertUrlRequest(BaseModel):
     enable_plugins: bool = False
     use_docintel: bool = False
     use_llm_captions: bool = False
+    anonymize: bool = False
 
 
 class ConversionMetadata(BaseModel):

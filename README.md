@@ -11,6 +11,7 @@ An open source HTTP API that wraps Microsoft's [markitdown](https://github.com/m
 - Optional Azure Document Intelligence integration for higher-fidelity PDF/office parsing
 - Optional LLM-based image captioning during conversion
 - Optional markitdown plugin support
+- Brazilian PII anonymization (names, e-mails, CPF, CNPJ, RG, phone numbers) via Presidio, either as standalone `/anonymize/*` endpoints or as an opt-in flag on conversion
 
 ## Quick start
 
@@ -66,6 +67,33 @@ Response `metadata.extraction_method` reports which engine(s) actually produced 
 Possible values: `MarkItDown (built-in converters)` (default/success case), `Microsoft Document Intelligence (fallback after ...)` (only when the built-in attempt failed), optionally suffixed with `+ LLM image captioning (OpenAI/<model>)` and/or `+ third-party plugins`.
 
 > **Note on Document Intelligence output**: Azure Document Intelligence's markdown output format (GFM) embeds raw HTML for constructs that plain markdown can't express — merged-cell tables, `<figure>`, `<sup>`/`<sub>`, page breaks. This is expected behavior on Microsoft's side, not a bug, and renders correctly in most markdown viewers (GitHub, VS Code preview, etc.) that support inline HTML.
+
+### PII anonymization (pt-BR)
+
+Pass `anonymize=true` to `/api/v1/convert` or `/api/v1/convert/url` to redact Brazilian PII (names, e-mails, CPF, CNPJ, RG, phone numbers) from the converted Markdown before it's returned.
+
+Standalone content can also be anonymized directly, without going through conversion, via dedicated endpoints for text, HTML, Markdown, and JSON:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/anonymize/text \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Meu nome é João Silva, CPF 123.456.789-09, e-mail joao@example.com"}'
+```
+
+```json
+{
+  "anonymized": "Meu nome é <PERSON>, CPF <CPF>, e-mail <EMAIL_ADDRESS>",
+  "entities_found": [
+    {"entity_type": "PERSON", "start": 11, "end": 21, "score": 0.85, "path": null},
+    {"entity_type": "CPF", "start": 27, "end": 41, "score": 1.0, "path": null},
+    {"entity_type": "EMAIL_ADDRESS", "start": 51, "end": 67, "score": 1.0, "path": null}
+  ]
+}
+```
+
+`/api/v1/anonymize/html` and `/api/v1/anonymize/markdown` work the same way (`html`/`markdown` body field instead of `text`) and preserve surrounding markup, since redaction operates on character offsets rather than re-serializing the content. `/api/v1/anonymize/json` accepts an arbitrary JSON `data` value and recursively redacts every string leaf, reporting each match's `path` (e.g. `"user.email"`).
+
+Detection is scoped to Brazilian Portuguese: it uses a `pt_core_news_lg` spaCy model plus custom recognizers for CPF/CNPJ (validated by check digits) and RG/phone numbers (format-based).
 
 ## Configuration
 

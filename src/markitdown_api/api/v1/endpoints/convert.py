@@ -7,7 +7,7 @@ from markitdown_api.core.markitdown_client import (
     build_docintel_fallback_client,
     build_primary_client,
 )
-from markitdown_api.core.security import require_token
+from markitdown_api.core.security import AUTH_RESPONSES, require_token
 from markitdown_api.core.url_guard import UnsafeUrlError
 from markitdown_api.schemas.convert import ConvertResponse, ConvertUrlRequest
 from markitdown_api.services.anonymization import anonymize_content
@@ -24,6 +24,14 @@ router = APIRouter(tags=["convert"], dependencies=[Depends(require_token)])
     "/convert",
     response_model=ConvertResponse,
     summary="Convert an uploaded file to Markdown",
+    description="Uploads a file and converts it to Markdown via markitdown. Optionally "
+    "falls back to Azure Document Intelligence, captions embedded images with an LLM, "
+    "and/or redacts Brazilian PII from the result.",
+    responses={
+        **AUTH_RESPONSES,
+        413: {"description": "Upload exceeds MAX_UPLOAD_SIZE_BYTES."},
+        422: {"description": "Conversion failed (unsupported/corrupt file, etc.)."},
+    },
 )
 async def convert_file(
     settings: Annotated[Settings, Depends(get_settings)],
@@ -60,6 +68,14 @@ async def convert_file(
     "/convert/url",
     response_model=ConvertResponse,
     summary="Convert a remote URL to Markdown",
+    description="Fetches a remote http(s) URL and converts it to Markdown via markitdown. "
+    "Private, loopback, and cloud metadata-service network ranges are blocked (SSRF "
+    "guardrail). Optionally falls back to Azure Document Intelligence, captions embedded "
+    "images with an LLM, and/or redacts Brazilian PII from the result.",
+    responses={
+        **AUTH_RESPONSES,
+        422: {"description": "URL rejected by the SSRF guardrail, or conversion failed."},
+    },
 )
 async def convert_url(
     settings: Annotated[Settings, Depends(get_settings)],

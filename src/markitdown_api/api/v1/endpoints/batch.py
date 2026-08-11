@@ -7,7 +7,7 @@ from markitdown_api.core.markitdown_client import (
     build_docintel_fallback_client,
     build_primary_client,
 )
-from markitdown_api.core.security import require_token
+from markitdown_api.core.security import AUTH_RESPONSES, require_token
 from markitdown_api.schemas.convert import BatchConvertResponse, BatchItemResult
 from markitdown_api.services.anonymization import anonymize_content
 from markitdown_api.services.conversion import (
@@ -24,6 +24,10 @@ router = APIRouter(tags=["convert"], dependencies=[Depends(require_token)])
     "/convert/batch",
     response_model=BatchConvertResponse,
     summary="Convert multiple files and/or URLs to Markdown in one call",
+    description="Converts any combination of file uploads and URLs in a single request. "
+    "Per-item failures (unsafe URL, conversion error) do not fail the whole request — they "
+    "are reported as a `success: false` entry with an `error` message for that item.",
+    responses=AUTH_RESPONSES,
 )
 async def convert_batch(
     settings: Annotated[Settings, Depends(get_settings)],

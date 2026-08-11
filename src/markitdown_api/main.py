@@ -1,5 +1,6 @@
 import logging
 import time
+from importlib.metadata import version
 
 from fastapi import FastAPI, Request
 
@@ -9,6 +10,22 @@ from markitdown_api.core.logging import setup_logging
 
 http_logger = logging.getLogger("markitdown_api.http")
 
+OPENAPI_TAGS = [
+    {
+        "name": "convert",
+        "description": "Convert file uploads, remote URLs, or batches of both to Markdown.",
+    },
+    {
+        "name": "anonymize",
+        "description": "Redact Brazilian PII (names, e-mails, CPF, CNPJ, RG, phone numbers) "
+        "from standalone text, HTML, Markdown, or JSON content.",
+    },
+    {
+        "name": "health",
+        "description": "Liveness check, always unauthenticated.",
+    },
+]
+
 
 def create_app() -> FastAPI:
     settings = get_settings()
@@ -17,7 +34,8 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="markitdown-fastapi",
         description="HTTP API wrapping Microsoft's markitdown library.",
-        version="0.1.0",
+        version=version("markitdown-fastapi"),
+        openapi_tags=OPENAPI_TAGS,
     )
     app.include_router(api_router)
 

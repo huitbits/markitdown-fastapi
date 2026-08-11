@@ -9,6 +9,13 @@ from markitdown_api.core.config import Settings, get_settings
 
 _bearer_scheme = HTTPBearer(auto_error=False)
 
+AUTH_RESPONSES: dict[int | str, dict[str, str]] = {
+    401: {
+        "description": "Missing or invalid bearer token "
+        "(only when MARKITDOWN_FASTAPI_TOKEN is set)."
+    }
+}
+
 
 async def require_token(
     settings: Annotated[Settings, Depends(get_settings)],

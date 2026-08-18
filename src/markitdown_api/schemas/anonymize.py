@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 class DetectedEntity(BaseModel):
     entity_type: str = Field(
         description="PII category detected, e.g. PERSON, EMAIL_ADDRESS, CPF, CNPJ, RG, "
-        "PHONE_NUMBER.",
+        "PHONE_NUMBER_BR, ORGANIZATION, LOCATION, CEP, PROCESS_NUMBER_CNJ, VEHICLE_PLATE_BR.",
         examples=["CPF"],
     )
     start: int = Field(description="Start character offset of the match in the original content.")

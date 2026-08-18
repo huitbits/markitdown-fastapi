@@ -27,6 +27,39 @@ def test_docintel_fallback_built_when_configured() -> None:
     assert build.extraction_method == "Microsoft Document Intelligence"
 
 
+def test_docintel_fallback_defaults_to_ga_api_version() -> None:
+    from markitdown._markitdown import DocumentIntelligenceConverter
+
+    settings = Settings(azure_docintel_endpoint="https://example.cognitiveservices.azure.com/")
+    build = build_docintel_fallback_client(settings)
+    assert build is not None
+    converters = [
+        c.converter
+        for c in build.client._converters
+        if isinstance(c.converter, DocumentIntelligenceConverter)
+    ]
+    assert len(converters) == 1
+    assert converters[0].api_version == "2024-11-30"
+
+
+def test_docintel_fallback_uses_custom_api_version() -> None:
+    from markitdown._markitdown import DocumentIntelligenceConverter
+
+    settings = Settings(
+        azure_docintel_endpoint="https://example.cognitiveservices.azure.com/",
+        azure_docintel_api_version="2023-07-31",
+    )
+    build = build_docintel_fallback_client(settings)
+    assert build is not None
+    converters = [
+        c.converter
+        for c in build.client._converters
+        if isinstance(c.converter, DocumentIntelligenceConverter)
+    ]
+    assert len(converters) == 1
+    assert converters[0].api_version == "2023-07-31"
+
+
 def test_primary_llm_captions_appended_when_configured() -> None:
     settings = Settings(llm_provider="openai", llm_api_key="sk-test", llm_model="gpt-4o-mini")
     build = build_primary_client(settings, use_llm_captions=True)

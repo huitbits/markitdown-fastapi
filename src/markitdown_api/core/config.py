@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     markitdown_enable_plugins: bool = False
     markitdown_fastapi_token: str | None = None
     azure_docintel_endpoint: str | None = None
+    azure_docintel_api_version: str = "2024-11-30"
     llm_provider: str | None = None
     llm_api_key: str | None = None
     llm_model: str | None = None

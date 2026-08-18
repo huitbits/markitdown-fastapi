@@ -46,7 +46,11 @@ def build_docintel_fallback_client(
     if not settings.has_docintel_config:
         return None
 
-    kwargs: dict = {"enable_plugins": False, "docintel_endpoint": settings.azure_docintel_endpoint}
+    kwargs: dict = {
+        "enable_plugins": False,
+        "docintel_endpoint": settings.azure_docintel_endpoint,
+        "docintel_api_version": settings.azure_docintel_api_version,
+    }
     methods = ["Microsoft Document Intelligence"]
 
     if use_llm_captions and settings.has_llm_config:

@@ -1,6 +1,6 @@
 [project]
 name = "markitdown-fastapi"
-version = "0.1.0"
+version = "0.2.2"
 description = "FastAPI wrapper around Microsoft's markitdown library"
 readme = "README.md"
 license = { text = "MIT" }

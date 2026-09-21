@@ -23,6 +23,8 @@ async def convert_upload_to_markdown(
     upload: UploadFile,
     primary: MarkitdownClientBuild,
     docintel_fallback: MarkitdownClientBuild | None = None,
+    *,
+    force_docintel: bool = False,
 ) -> ConvertResponse:
     suffix = Path(upload.filename or "").suffix
     content = await upload.read()
@@ -35,7 +37,11 @@ async def convert_upload_to_markdown(
         tmp.write(content)
         tmp.flush()
         markdown, extraction_method, title = await _convert_with_fallback(
-            tmp.name, "convert_local", primary, docintel_fallback
+            tmp.name,
+            "convert_local",
+            primary,
+            docintel_fallback,
+            force_docintel=force_docintel,
         )
 
     return ConvertResponse(
@@ -53,12 +59,18 @@ async def convert_url_to_markdown(
     url: str,
     primary: MarkitdownClientBuild,
     docintel_fallback: MarkitdownClientBuild | None = None,
+    *,
+    force_docintel: bool = False,
 ) -> ConvertResponse:
     ensure_public_http_url(url)  # raises UnsafeUrlError on SSRF-risky destinations
     logger.info("url_conversion_requested", extra={"url": url})
 
     markdown, extraction_method, title = await _convert_with_fallback(
-        url, "convert", primary, docintel_fallback
+        url,
+        "convert",
+        primary,
+        docintel_fallback,
+        force_docintel=force_docintel,
     )
 
     return ConvertResponse(
@@ -77,13 +89,38 @@ async def _convert_with_fallback(
     method_name: str,
     primary: MarkitdownClientBuild,
     docintel_fallback: MarkitdownClientBuild | None,
+    *,
+    force_docintel: bool = False,
 ) -> tuple[str, str, str | None]:
-    """Try the primary client; auto-retry with Document Intelligence on empty/failed result.
+    """Execute document conversion.
 
-    Document Intelligence is only ever used as a fallback: attempted solely when the
-    primary (built-in) extraction raises or comes back with blank markdown, and only if
-    a fallback client was configured (use_docintel=True and Azure DI set up).
+    When force_docintel is True, converts directly with primary (configured for Document
+    Intelligence), bypassing local converters.
+    Otherwise, tries the primary client (built-in converters) and auto-retries with
+    Document Intelligence on empty or failed results if docintel_fallback is provided.
     """
+    if force_docintel:
+        start = time.perf_counter()
+        try:
+            result = await run_in_threadpool(getattr(primary.client, method_name), source)
+        except Exception as err:  # noqa: BLE001
+            logger.error(
+                "docintel_forced_failed",
+                extra={"extraction_method": primary.extraction_method},
+                exc_info=True,
+            )
+            raise ConversionError(str(err)) from err
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+        logger.info(
+            "conversion_succeeded",
+            extra={"extraction_method": primary.extraction_method, "duration_ms": duration_ms},
+        )
+        return (
+            result.text_content,
+            primary.extraction_method,
+            getattr(result, "title", None),
+        )
+
     primary_result = None
     primary_error: Exception | None = None
     start = time.perf_counter()

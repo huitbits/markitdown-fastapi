@@ -1,5 +1,6 @@
 from markitdown_api.core.config import Settings
 from markitdown_api.core.markitdown_client import (
+    build_docintel_client,
     build_docintel_fallback_client,
     build_primary_client,
 )
@@ -18,6 +19,7 @@ def test_primary_never_uses_docintel() -> None:
 
 def test_docintel_fallback_none_when_not_configured() -> None:
     assert build_docintel_fallback_client(Settings()) is None
+    assert build_docintel_client(Settings()) is None
 
 
 def test_docintel_fallback_built_when_configured() -> None:
@@ -25,6 +27,9 @@ def test_docintel_fallback_built_when_configured() -> None:
     build = build_docintel_fallback_client(settings)
     assert build is not None
     assert build.extraction_method == "Microsoft Document Intelligence"
+    build_direct = build_docintel_client(settings)
+    assert build_direct is not None
+    assert build_direct.extraction_method == "Microsoft Document Intelligence"
 
 
 def test_docintel_fallback_defaults_to_ga_api_version() -> None:

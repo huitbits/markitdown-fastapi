@@ -37,12 +37,12 @@ def build_primary_client(
     return MarkitdownClientBuild(client=client, extraction_method=" + ".join(methods))
 
 
-def build_docintel_fallback_client(
+def build_docintel_client(
     settings: Settings,
     *,
     use_llm_captions: bool = False,
 ) -> MarkitdownClientBuild | None:
-    """Build a Document Intelligence client for fallback use, or None if unconfigured."""
+    """Build a Document Intelligence client, or None if unconfigured."""
     if not settings.has_docintel_config:
         return None
 
@@ -60,6 +60,10 @@ def build_docintel_fallback_client(
 
     client = MarkItDown(**kwargs)
     return MarkitdownClientBuild(client=client, extraction_method=" + ".join(methods))
+
+
+# Retained for backwards compatibility
+build_docintel_fallback_client = build_docintel_client
 
 
 def _llm_caption_label(settings: Settings) -> str:

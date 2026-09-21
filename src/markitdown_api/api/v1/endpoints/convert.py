@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 
 from markitdown_api.core.config import Settings, get_settings
 from markitdown_api.core.markitdown_client import (
+    build_docintel_client,
     build_docintel_fallback_client,
     build_primary_client,
 )
@@ -25,8 +26,8 @@ router = APIRouter(tags=["convert"], dependencies=[Depends(require_token)])
     response_model=ConvertResponse,
     summary="Convert an uploaded file to Markdown",
     description="Uploads a file and converts it to Markdown via markitdown. Optionally "
-    "falls back to Azure Document Intelligence, captions embedded images with an LLM, "
-    "and/or redacts Brazilian PII from the result.",
+    "forces or falls back to Azure Document Intelligence, captions embedded images with "
+    "an LLM, and/or redacts Brazilian PII from the result.",
     responses={
         **AUTH_RESPONSES,
         413: {"description": "Upload exceeds MAX_UPLOAD_SIZE_BYTES."},
@@ -38,6 +39,7 @@ async def convert_file(
     file: UploadFile,
     enable_plugins: bool = False,
     use_docintel: bool = False,
+    force_docintel: bool = False,
     use_llm_captions: bool = False,
     anonymize: bool = False,
 ) -> ConvertResponse:
@@ -46,18 +48,31 @@ async def convert_file(
             status.HTTP_413_CONTENT_TOO_LARGE, detail="File exceeds max upload size"
         )
 
-    primary = build_primary_client(
-        settings, enable_plugins=enable_plugins, use_llm_captions=use_llm_captions
-    )
-    docintel_fallback = (
-        build_docintel_fallback_client(settings, use_llm_captions=use_llm_captions)
-        if use_docintel
-        else None
-    )
-    try:
-        result = await convert_upload_to_markdown(file, primary, docintel_fallback)
-    except ConversionError as err:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(err)) from err
+    if force_docintel:
+        if not settings.has_docintel_config:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="AZURE_DOCINTEL_ENDPOINT must be configured when force_docintel is true.",
+            )
+        client = build_docintel_client(settings, use_llm_captions=use_llm_captions)
+        assert client is not None
+        try:
+            result = await convert_upload_to_markdown(file, client, force_docintel=True)
+        except ConversionError as err:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(err)) from err
+    else:
+        primary = build_primary_client(
+            settings, enable_plugins=enable_plugins, use_llm_captions=use_llm_captions
+        )
+        docintel_fallback = (
+            build_docintel_fallback_client(settings, use_llm_captions=use_llm_captions)
+            if use_docintel
+            else None
+        )
+        try:
+            result = await convert_upload_to_markdown(file, primary, docintel_fallback)
+        except ConversionError as err:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(err)) from err
 
     if anonymize:
         result.markdown = anonymize_content(result.markdown).anonymized
@@ -70,8 +85,8 @@ async def convert_file(
     summary="Convert a remote URL to Markdown",
     description="Fetches a remote http(s) URL and converts it to Markdown via markitdown. "
     "Private, loopback, and cloud metadata-service network ranges are blocked (SSRF "
-    "guardrail). Optionally falls back to Azure Document Intelligence, captions embedded "
-    "images with an LLM, and/or redacts Brazilian PII from the result.",
+    "guardrail). Optionally forces or falls back to Azure Document Intelligence, captions "
+    "embedded images with an LLM, and/or redacts Brazilian PII from the result.",
     responses={
         **AUTH_RESPONSES,
         422: {"description": "URL rejected by the SSRF guardrail, or conversion failed."},
@@ -81,20 +96,35 @@ async def convert_url(
     settings: Annotated[Settings, Depends(get_settings)],
     body: ConvertUrlRequest,
 ) -> ConvertResponse:
-    primary = build_primary_client(
-        settings, enable_plugins=body.enable_plugins, use_llm_captions=body.use_llm_captions
-    )
-    docintel_fallback = (
-        build_docintel_fallback_client(settings, use_llm_captions=body.use_llm_captions)
-        if body.use_docintel
-        else None
-    )
-    try:
-        result = await convert_url_to_markdown(str(body.url), primary, docintel_fallback)
-    except UnsafeUrlError as err:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(err)) from err
-    except ConversionError as err:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(err)) from err
+    if body.force_docintel:
+        if not settings.has_docintel_config:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="AZURE_DOCINTEL_ENDPOINT must be configured when force_docintel is true.",
+            )
+        client = build_docintel_client(settings, use_llm_captions=body.use_llm_captions)
+        assert client is not None
+        try:
+            result = await convert_url_to_markdown(str(body.url), client, force_docintel=True)
+        except UnsafeUrlError as err:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(err)) from err
+        except ConversionError as err:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(err)) from err
+    else:
+        primary = build_primary_client(
+            settings, enable_plugins=body.enable_plugins, use_llm_captions=body.use_llm_captions
+        )
+        docintel_fallback = (
+            build_docintel_fallback_client(settings, use_llm_captions=body.use_llm_captions)
+            if body.use_docintel
+            else None
+        )
+        try:
+            result = await convert_url_to_markdown(str(body.url), primary, docintel_fallback)
+        except UnsafeUrlError as err:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(err)) from err
+        except ConversionError as err:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(err)) from err
 
     if body.anonymize:
         result.markdown = anonymize_content(result.markdown).anonymized

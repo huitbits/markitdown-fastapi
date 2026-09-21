@@ -1,9 +1,10 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, status
 
 from markitdown_api.core.config import Settings, get_settings
 from markitdown_api.core.markitdown_client import (
+    build_docintel_client,
     build_docintel_fallback_client,
     build_primary_client,
 )
@@ -27,7 +28,10 @@ router = APIRouter(tags=["convert"], dependencies=[Depends(require_token)])
     description="Converts any combination of file uploads and URLs in a single request. "
     "Per-item failures (unsafe URL, conversion error) do not fail the whole request — they "
     "are reported as a `success: false` entry with an `error` message for that item.",
-    responses=AUTH_RESPONSES,
+    responses={
+        **AUTH_RESPONSES,
+        422: {"description": "Validation error (e.g. force_docintel without configuration)."},
+    },
 )
 async def convert_batch(
     settings: Annotated[Settings, Depends(get_settings)],
@@ -35,24 +39,37 @@ async def convert_batch(
     urls: Annotated[list[str], Form()] = [],  # noqa: B006 (FastAPI Form default pattern)
     enable_plugins: bool = False,
     use_docintel: bool = False,
+    force_docintel: bool = False,
     use_llm_captions: bool = False,
     anonymize: bool = False,
 ) -> BatchConvertResponse:
-    primary = build_primary_client(
-        settings, enable_plugins=enable_plugins, use_llm_captions=use_llm_captions
-    )
-    docintel_fallback = (
-        build_docintel_fallback_client(settings, use_llm_captions=use_llm_captions)
-        if use_docintel
-        else None
-    )
+    if force_docintel:
+        if not settings.has_docintel_config:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="AZURE_DOCINTEL_ENDPOINT must be configured when force_docintel is true.",
+            )
+        primary = build_docintel_client(settings, use_llm_captions=use_llm_captions)
+        assert primary is not None
+        docintel_fallback = None
+    else:
+        primary = build_primary_client(
+            settings, enable_plugins=enable_plugins, use_llm_captions=use_llm_captions
+        )
+        docintel_fallback = (
+            build_docintel_fallback_client(settings, use_llm_captions=use_llm_captions)
+            if use_docintel
+            else None
+        )
 
     results: list[BatchItemResult] = []
 
     for file in files or []:
         source = file.filename or "unknown"
         try:
-            response = await convert_upload_to_markdown(file, primary, docintel_fallback)
+            response = await convert_upload_to_markdown(
+                file, primary, docintel_fallback, force_docintel=force_docintel
+            )
             markdown = (
                 anonymize_content(response.markdown).anonymized if anonymize else response.markdown
             )
@@ -69,7 +86,9 @@ async def convert_batch(
 
     for url in urls:
         try:
-            response = await convert_url_to_markdown(url, primary, docintel_fallback)
+            response = await convert_url_to_markdown(
+                url, primary, docintel_fallback, force_docintel=force_docintel
+            )
             markdown = (
                 anonymize_content(response.markdown).anonymized if anonymize else response.markdown
             )

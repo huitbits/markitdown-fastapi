@@ -17,6 +17,11 @@ class ConvertUrlRequest(BaseModel):
         description="Retry with Azure Document Intelligence as a fallback if the built-in "
         "converters fail or return empty markdown. Requires AZURE_DOCINTEL_ENDPOINT.",
     )
+    force_docintel: bool = Field(
+        default=False,
+        description="Force conversion using Azure Document Intelligence directly, "
+        "bypassing built-in converters. Requires AZURE_DOCINTEL_ENDPOINT.",
+    )
     use_llm_captions: bool = Field(
         default=False, description="Caption embedded images using the configured LLM provider."
     )

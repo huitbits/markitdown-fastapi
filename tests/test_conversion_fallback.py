@@ -90,3 +90,28 @@ async def test_fallback_error_raises_conversion_error() -> None:
 
     with pytest.raises(ConversionError):
         await _convert_with_fallback("src", "convert_local", primary, fallback)
+
+
+async def test_force_docintel_uses_client_directly() -> None:
+    client = _build(
+        _StubClient(result=_StubResult("# Forced Azure", title="Document Title")),
+        "Microsoft Document Intelligence",
+    )
+
+    markdown, method, title = await _convert_with_fallback(
+        "src", "convert_local", client, None, force_docintel=True
+    )
+
+    assert markdown == "# Forced Azure"
+    assert method == "Microsoft Document Intelligence"
+    assert title == "Document Title"
+
+
+async def test_force_docintel_raises_conversion_error_on_failure() -> None:
+    client = _build(
+        _StubClient(error=RuntimeError("azure connection failed")),
+        "Microsoft Document Intelligence",
+    )
+
+    with pytest.raises(ConversionError):
+        await _convert_with_fallback("src", "convert_local", client, None, force_docintel=True)
